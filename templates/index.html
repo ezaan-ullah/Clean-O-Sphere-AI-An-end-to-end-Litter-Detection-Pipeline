@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clean-O-Sphere AI - Litter Detection</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 800px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background-color: #f8f9ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background-color: #f0f2ff;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .upload-text {
+            color: #666;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            margin-top: 20px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .file-info {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9ff;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .file-info.show {
+            display: block;
+        }
+        
+        .file-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .file-size {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .progress-container.show {
+            display: block;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background-color: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .status-message {
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #f8f9ff;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .results h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .result-item {
+            padding: 10px;
+            background-color: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .result-label {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .error {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fee;
+            border: 1px solid #fcc;
+            border-radius: 10px;
+            color: #c33;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .download-link {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background-color: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        
+        .download-link:hover {
+            background-color: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 Clean-O-Sphere AI</h1>
+        <p class="subtitle">Litter Detection & Tracking System</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">📹</div>
+            <div class="upload-text">Drag & drop your video here</div>
+            <div class="upload-text" style="font-size: 0.9em; color: #999;">or click to browse</div>
+            <input type="file" id="fileInput" class="file-input" accept=".mov,.mp4,.avi,.mkv">
+        </div>
+        
+        <div class="file-info" id="fileInfo">
+            <div class="file-name" id="fileName"></div>
+            <div class="file-size" id="fileSize"></div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn" id="uploadBtn" disabled>Upload & Process Video</button>
+        </div>
+        
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status-message" id="statusMessage">Preparing...</div>
+        </div>
+        
+        <div class="error" id="errorMessage"></div>
+        
+        <div class="results" id="results">
+            <h2>Processing Results</h2>
+            <div class="result-item">
+                <span class="result-label">Total Frames Processed:</span>
+                <span id="totalFrames">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Littering Events Detected:</span>
+                <span id="litteringEvents">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Persons Who Littered:</span>
+                <span id="personsLittered">-</span>
+            </div>
+            <div class="result-item">
+                <span class="result-label">Total Litter Items:</span>
+                <span id="totalLitter">-</span>
+            </div>
+            <a href="#" id="downloadLink" class="download-link" style="display: none;">Download Processed Video</a>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressFill = document.getElementById('progressFill');
+        const statusMessage = document.getElementById('statusMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const results = document.getElementById('results');
+        const downloadLink = document.getElementById('downloadLink');
+        
+        let selectedFile = null;
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelect(files[0]);
+            }
+        });
+        
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+        
+        function handleFileSelect(file) {
+            // Check file type
+            const allowedTypes = ['video/quicktime', 'video/mp4', 'video/x-msvideo', 'video/x-matroska'];
+            const fileExtension = file.name.split('.').pop().toLowerCase();
+            const allowedExtensions = ['mov', 'mp4', 'avi', 'mkv'];
+            
+            if (!allowedExtensions.includes(fileExtension)) {
+                showError('Invalid file type. Please upload .mov, .mp4, .avi, or .mkv files.');
+                return;
+            }
+            
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            fileInfo.classList.add('show');
+            uploadBtn.disabled = false;
+            hideError();
+            hideResults();
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+        
+        // Upload button click
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('video', selectedFile);
+            
+            // Show progress
+            uploadBtn.disabled = true;
+            progressContainer.classList.add('show');
+            progressFill.style.width = '10%';
+            statusMessage.textContent = 'Uploading video...';
+            hideError();
+            hideResults();
+            
+            try {
+                // Upload and process
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                let data;
+                try {
+                    data = await response.json();
+                } catch (jsonError) {
+                    const text = await response.text();
+                    showError('Server error: ' + text.substring(0, 200));
+                    progressContainer.classList.remove('show');
+                    uploadBtn.disabled = false;
+                    return;
+                }
+                
+                if (response.ok && data && data.success) {
+                    progressFill.style.width = '100%';
+                    statusMessage.textContent = 'Processing complete!';
+                    
+                    // Show results
+                    if (data.results) {
+                        showResults(data.results, data.output_video);
+                    } else {
+                        showError('Processing completed but no results returned.');
+                        progressContainer.classList.remove('show');
+                    }
+                } else {
+                    showError(data?.error || data?.message || 'Processing failed. Please try again.');
+                    progressContainer.classList.remove('show');
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                showError('Error: ' + (error.message || 'Unknown error occurred'));
+                progressContainer.classList.remove('show');
+            } finally {
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        function showResults(results, outputVideo) {
+            if (!results) {
+                console.error('showResults called with undefined results');
+                return;
+            }
+            
+            const resultsDiv = document.getElementById('results');
+            if (!resultsDiv) {
+                console.error('Results div not found');
+                return;
+            }
+            
+            document.getElementById('totalFrames').textContent = results.total_frames || 0;
+            document.getElementById('litteringEvents').textContent = results.littering_events?.length || 0;
+            document.getElementById('personsLittered').textContent = results.persons_with_littering || 0;
+            document.getElementById('totalLitter').textContent = results.total_litter_items || 0;
+            
+            if (outputVideo) {
+                downloadLink.href = `/outputs/${outputVideo}`;
+                downloadLink.style.display = 'inline-block';
+            }
+            
+            resultsDiv.classList.add('show');
+        }
+        
+        function hideResults() {
+            results.classList.remove('show');
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+        
+        function hideError() {
+            errorMessage.classList.remove('show');
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,2 @@
+"""Litter detection system package."""
+

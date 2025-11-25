@@ -1,0 +1,11 @@
+Clean O Sphere YOLOv8 Model
+==================================================
+
+Model: yolov8m.pt
+Epochs: 8
+Image Size: 640
+Batch Size: 16
+Learning Rate: 0.01
+Classes: person, paper, cardboard, can, plastic
+
+Trained on: 2025-11-24 23:36:20
