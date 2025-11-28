@@ -14,12 +14,12 @@ app.config['OUTPUT_FOLDER'] = 'outputs'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
 app.config['ALLOWED_EXTENSIONS'] = {'mov', 'mp4', 'avi', 'mkv'}
 
-# Create necessary directories
+# Create necessary directories (code)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 os.makedirs('static', exist_ok=True)
 
-# Model path
+# Model path configuration
 MODEL_PATH = 'model/v8mBestWeights.pt'
 
 
@@ -53,14 +53,14 @@ def upload_video():
         return jsonify({'error': 'Invalid file type. Allowed: mov, mp4, avi, mkv'}), 400
     
     try:
-        # Save uploaded file
+        # Save uploaded file to disk
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
         print(f"Processing video: {filename}")
         
-        # Process video
+        # Process video using VideoProcessor
         processor = VideoProcessor(MODEL_PATH, flask_server_url=request.url_root)
         output_filename = f"processed_{filename}"
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
@@ -78,7 +78,7 @@ def upload_video():
                 'total_litter_items': getattr(results, 'total_litter_items', 0)
             }
         
-        # Return results
+        # Return results and output video path
         return jsonify({
             'success': True,
             'message': 'Video processed successfully',
@@ -111,7 +111,7 @@ def report_littering():
     image_file = request.files['image']
     
     # Save image (placeholder - in production, save to MongoDB)
-    # For now, just save to disk
+    # For now, just save to disk locally
     image_dir = os.path.join('static', 'person_images')
     os.makedirs(image_dir, exist_ok=True)
     

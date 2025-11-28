@@ -141,7 +141,7 @@ class VideoProcessor:
         if display:
             cv2.destroyAllWindows()
         
-        # Get results
+        # Get results summary
         return {
             'total_frames': self.frame_count,
             'littering_events': self.tracker.get_littering_events(),
