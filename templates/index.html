@@ -1,449 +1,735 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clean-O-Sphere AI - Litter Detection</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clean-O-Sphere - Intelligent Litter Detection</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            max-width: 800px;
-            width: 100%;
-        }
-        
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-        
-        .upload-area {
-            border: 3px dashed #667eea;
-            border-radius: 15px;
-            padding: 40px;
-            text-align: center;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        
-        .upload-area:hover {
-            border-color: #764ba2;
-            background-color: #f8f9ff;
-        }
-        
-        .upload-area.dragover {
-            border-color: #764ba2;
-            background-color: #f0f2ff;
-        }
-        
-        .upload-icon {
-            font-size: 4em;
-            color: #667eea;
-            margin-bottom: 20px;
-        }
-        
-        .upload-text {
-            color: #666;
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-        
-        .file-input {
-            display: none;
-        }
-        
-        .btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 40px;
-            border-radius: 10px;
-            font-size: 1.1em;
-            cursor: pointer;
-            transition: transform 0.2s ease;
-            margin-top: 20px;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .file-info {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #f8f9ff;
-            border-radius: 10px;
-            display: none;
-        }
-        
-        .file-info.show {
-            display: block;
-        }
-        
-        .file-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-        }
-        
-        .file-size {
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .progress-container {
-            margin-top: 20px;
-            display: none;
-        }
-        
-        .progress-container.show {
-            display: block;
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 30px;
-            background-color: #e0e0e0;
-            border-radius: 15px;
-            overflow: hidden;
-            margin-bottom: 10px;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-            width: 0%;
-            transition: width 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-        }
-        
-        .status-message {
-            text-align: center;
-            color: #666;
-            font-size: 0.9em;
-        }
-        
-        .results {
-            margin-top: 30px;
-            padding: 20px;
-            background-color: #f8f9ff;
-            border-radius: 10px;
-            display: none;
-        }
-        
-        .results.show {
-            display: block;
-        }
-        
-        .results h2 {
-            color: #333;
-            margin-bottom: 15px;
-        }
-        
-        .result-item {
-            padding: 10px;
-            background-color: white;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }
-        
-        .result-label {
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .error {
-            margin-top: 20px;
-            padding: 15px;
-            background-color: #fee;
-            border: 1px solid #fcc;
-            border-radius: 10px;
-            color: #c33;
-            display: none;
-        }
-        
-        .error.show {
-            display: block;
-        }
-        
-        .download-link {
-            display: inline-block;
-            margin-top: 15px;
-            padding: 10px 20px;
-            background-color: #667eea;
-            color: white;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
-        }
-        
-        .download-link:hover {
-            background-color: #764ba2;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🌍 Clean-O-Sphere AI</h1>
-        <p class="subtitle">Litter Detection & Tracking System</p>
-        
-        <div class="upload-area" id="uploadArea">
-            <div class="upload-icon">📹</div>
-            <div class="upload-text">Drag & drop your video here</div>
-            <div class="upload-text" style="font-size: 0.9em; color: #999;">or click to browse</div>
-            <input type="file" id="fileInput" class="file-input" accept=".mov,.mp4,.avi,.mkv">
-        </div>
-        
-        <div class="file-info" id="fileInfo">
-            <div class="file-name" id="fileName"></div>
-            <div class="file-size" id="fileSize"></div>
-        </div>
-        
-        <div style="text-align: center;">
-            <button class="btn" id="uploadBtn" disabled>Upload & Process Video</button>
-        </div>
-        
-        <div class="progress-container" id="progressContainer">
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="status-message" id="statusMessage">Preparing...</div>
-        </div>
-        
-        <div class="error" id="errorMessage"></div>
-        
-        <div class="results" id="results">
-            <h2>Processing Results</h2>
-            <div class="result-item">
-                <span class="result-label">Total Frames Processed:</span>
-                <span id="totalFrames">-</span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Littering Events Detected:</span>
-                <span id="litteringEvents">-</span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Persons Who Littered:</span>
-                <span id="personsLittered">-</span>
-            </div>
-            <div class="result-item">
-                <span class="result-label">Total Litter Items:</span>
-                <span id="totalLitter">-</span>
-            </div>
-            <a href="#" id="downloadLink" class="download-link" style="display: none;">Download Processed Video</a>
-        </div>
-    </div>
-    
-    <script>
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const uploadBtn = document.getElementById('uploadBtn');
-        const fileInfo = document.getElementById('fileInfo');
-        const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
-        const progressContainer = document.getElementById('progressContainer');
-        const progressFill = document.getElementById('progressFill');
-        const statusMessage = document.getElementById('statusMessage');
-        const errorMessage = document.getElementById('errorMessage');
-        const results = document.getElementById('results');
-        const downloadLink = document.getElementById('downloadLink');
-        
-        let selectedFile = null;
-        
-        // Click to upload
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
-        });
-        
-        // Drag and drop
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
-        });
-        
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
-        
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFileSelect(files[0]);
-            }
-        });
-        
-        // File input change
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
-        });
-        
-        function handleFileSelect(file) {
-            // Check file type
-            const allowedTypes = ['video/quicktime', 'video/mp4', 'video/x-msvideo', 'video/x-matroska'];
-            const fileExtension = file.name.split('.').pop().toLowerCase();
-            const allowedExtensions = ['mov', 'mp4', 'avi', 'mkv'];
-            
-            if (!allowedExtensions.includes(fileExtension)) {
-                showError('Invalid file type. Please upload .mov, .mp4, .avi, or .mkv files.');
-                return;
-            }
-            
-            selectedFile = file;
-            fileName.textContent = file.name;
-            fileSize.textContent = formatFileSize(file.size);
-            fileInfo.classList.add('show');
-            uploadBtn.disabled = false;
-            hideError();
-            hideResults();
-        }
-        
-        function formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-        }
-        
-        // Upload button click
-        uploadBtn.addEventListener('click', async () => {
-            if (!selectedFile) return;
-            
-            const formData = new FormData();
-            formData.append('video', selectedFile);
-            
-            // Show progress
-            uploadBtn.disabled = true;
-            progressContainer.classList.add('show');
-            progressFill.style.width = '10%';
-            statusMessage.textContent = 'Uploading video...';
-            hideError();
-            hideResults();
-            
-            try {
-                // Upload and process
-                const response = await fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                let data;
-                try {
-                    data = await response.json();
-                } catch (jsonError) {
-                    const text = await response.text();
-                    showError('Server error: ' + text.substring(0, 200));
-                    progressContainer.classList.remove('show');
-                    uploadBtn.disabled = false;
-                    return;
-                }
-                
-                if (response.ok && data && data.success) {
-                    progressFill.style.width = '100%';
-                    statusMessage.textContent = 'Processing complete!';
-                    
-                    // Show results
-                    if (data.results) {
-                        showResults(data.results, data.output_video);
-                    } else {
-                        showError('Processing completed but no results returned.');
-                        progressContainer.classList.remove('show');
-                    }
-                } else {
-                    showError(data?.error || data?.message || 'Processing failed. Please try again.');
-                    progressContainer.classList.remove('show');
-                }
-            } catch (error) {
-                console.error('Upload error:', error);
-                showError('Error: ' + (error.message || 'Unknown error occurred'));
-                progressContainer.classList.remove('show');
-            } finally {
-                uploadBtn.disabled = false;
-            }
-        });
-        
-        function showResults(results, outputVideo) {
-            if (!results) {
-                console.error('showResults called with undefined results');
-                return;
-            }
-            
-            const resultsDiv = document.getElementById('results');
-            if (!resultsDiv) {
-                console.error('Results div not found');
-                return;
-            }
-            
-            document.getElementById('totalFrames').textContent = results.total_frames || 0;
-            document.getElementById('litteringEvents').textContent = results.littering_events?.length || 0;
-            document.getElementById('personsLittered').textContent = results.persons_with_littering || 0;
-            document.getElementById('totalLitter').textContent = results.total_litter_items || 0;
-            
-            if (outputVideo) {
-                downloadLink.href = `/outputs/${outputVideo}`;
-                downloadLink.style.display = 'inline-block';
-            }
-            
-            resultsDiv.classList.add('show');
-        }
-        
-        function hideResults() {
-            results.classList.remove('show');
-        }
-        
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.classList.add('show');
-        }
-        
-        function hideError() {
-            errorMessage.classList.remove('show');
-        }
-    </script>
-</body>
-</html>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
 
+      :root {
+        --primary: #ffffff;
+        --secondary: #b0b0b0;
+        --dark: #0a0a0a;
+        --darker: #000000;
+        --border: #2a2a2a;
+        --card-bg: #1a1a1a;
+      }
+
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          sans-serif;
+        background: var(--darker);
+        color: var(--primary);
+        line-height: 1.6;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ===== HEADER/NAVBAR ===== */
+      header {
+        background: rgba(10, 10, 10, 0.8);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--border);
+        padding: 20px 0;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+      }
+
+      .nav-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logo {
+        font-size: 1.6em;
+        font-weight: 700;
+        letter-spacing: -1px;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 40px;
+        list-style: none;
+      }
+
+      .nav-links a {
+        color: var(--secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.3s;
+        cursor: pointer;
+      }
+
+      .nav-links a:hover {
+        color: var(--primary);
+      }
+
+      /* ===== HERO SECTION ===== */
+      .hero {
+        background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%);
+        padding: 100px 40px;
+        text-align: center;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .hero-content {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .hero h1 {
+        font-size: 4em;
+        font-weight: 700;
+        margin-bottom: 20px;
+        letter-spacing: -1.5px;
+        line-height: 1.2;
+      }
+
+      .hero p {
+        font-size: 1.3em;
+        color: var(--secondary);
+        max-width: 800px;
+        margin: 0 auto 40px;
+        line-height: 1.8;
+      }
+
+      .cta-buttons {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn-primary,
+      .btn-secondary {
+        padding: 14px 40px;
+        border-radius: 8px;
+        font-weight: 600;
+        border: none;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 1em;
+      }
+
+      .btn-primary {
+        background: var(--primary);
+        color: var(--darker);
+      }
+
+      .btn-primary:hover {
+        box-shadow: 0 12px 32px rgba(255, 255, 255, 0.2);
+        transform: translateY(-3px);
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--primary);
+        border: 1px solid var(--primary);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateY(-3px);
+      }
+
+      /* ===== FEATURES SECTION ===== */
+      .features {
+        padding: 80px 40px;
+        background: var(--darker);
+      }
+
+      .section-title {
+        text-align: center;
+        font-size: 2.5em;
+        font-weight: 700;
+        margin-bottom: 60px;
+        letter-spacing: -1px;
+      }
+
+      .features-grid {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 30px;
+      }
+
+      .feature-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        padding: 40px;
+        border-radius: 12px;
+        transition: all 0.4s;
+      }
+
+      .feature-card:hover {
+        border-color: var(--primary);
+        box-shadow: 0 20px 50px rgba(255, 255, 255, 0.1);
+        transform: translateY(-8px);
+      }
+
+      .feature-icon {
+        font-size: 3em;
+        margin-bottom: 20px;
+      }
+
+      .feature-card h3 {
+        font-size: 1.3em;
+        margin-bottom: 15px;
+        font-weight: 600;
+      }
+
+      .feature-card p {
+        color: var(--secondary);
+        line-height: 1.8;
+      }
+
+      /* ===== UPLOAD SECTION ===== */
+      .upload-section {
+        padding: 80px 40px;
+        background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+        border-top: 1px solid var(--border);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .upload-container {
+        max-width: 1000px;
+        margin: 0 auto;
+      }
+
+      .upload-header {
+        text-align: center;
+        margin-bottom: 50px;
+      }
+
+      .upload-header h2 {
+        font-size: 2.2em;
+        font-weight: 700;
+        margin-bottom: 15px;
+      }
+
+      .upload-header p {
+        color: var(--secondary);
+        font-size: 1.1em;
+      }
+
+      .upload-area {
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        padding: 60px 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .upload-area:hover {
+        border-color: var(--primary);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .upload-area.dragover {
+        border-color: var(--primary);
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .upload-icon {
+        font-size: 4em;
+        margin-bottom: 20px;
+        display: block;
+      }
+
+      .upload-text {
+        font-size: 1.2em;
+        font-weight: 500;
+        margin-bottom: 10px;
+      }
+
+      .upload-text-small {
+        color: var(--secondary);
+        font-size: 0.95em;
+      }
+
+      .file-input {
+        display: none;
+      }
+
+      .file-info {
+        margin-top: 30px;
+        padding: 20px;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        display: none;
+      }
+
+      .file-info.show {
+        display: block;
+      }
+
+      .file-name {
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+
+      .file-size {
+        color: var(--secondary);
+        font-size: 0.9em;
+      }
+
+      .progress-container {
+        margin-top: 30px;
+        display: none;
+      }
+
+      .progress-container.show {
+        display: block;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 6px;
+        background: var(--card-bg);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-bottom: 15px;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: var(--primary);
+        width: 0%;
+        transition: width 0.3s;
+      }
+
+      .status-message {
+        text-align: center;
+        color: var(--secondary);
+        font-size: 0.95em;
+      }
+
+      .btn-container {
+        text-align: center;
+        margin-top: 30px;
+      }
+
+      .btn-upload {
+        background: var(--primary);
+        color: var(--darker);
+        padding: 14px 50px;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+
+      .btn-upload:hover:not(:disabled) {
+        box-shadow: 0 12px 32px rgba(255, 255, 255, 0.2);
+        transform: translateY(-3px);
+      }
+
+      .btn-upload:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      /* ===== RESULTS SECTION ===== */
+      .results {
+        margin-top: 40px;
+        display: none;
+      }
+
+      .results.show {
+        display: block;
+      }
+
+      .results-title {
+        font-size: 1.8em;
+        font-weight: 700;
+        margin-bottom: 30px;
+      }
+
+      .results-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .result-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        padding: 25px;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .result-label {
+        color: var(--secondary);
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 10px;
+        font-weight: 600;
+      }
+
+      .result-value {
+        font-size: 2.5em;
+        font-weight: 700;
+      }
+
+      .error-message {
+        background: rgba(255, 68, 68, 0.1);
+        border: 1px solid #ff4444;
+        border-left: 4px solid #ff4444;
+        padding: 15px 20px;
+        border-radius: 6px;
+        color: #ff9999;
+        margin-top: 20px;
+        display: none;
+      }
+
+      .error-message.show {
+        display: block;
+      }
+
+      .download-btn {
+        display: inline-block;
+        margin-top: 20px;
+        padding: 12px 30px;
+        background: var(--primary);
+        color: var(--darker);
+        text-decoration: none;
+        border-radius: 6px;
+        font-weight: 600;
+        transition: all 0.3s;
+      }
+
+      .download-btn:hover {
+        box-shadow: 0 8px 20px rgba(255, 255, 255, 0.2);
+        transform: translateY(-2px);
+      }
+
+      /* ===== HOW IT WORKS SECTION ===== */
+      .how-it-works {
+        padding: 80px 40px;
+        background: var(--darker);
+      }
+
+      .steps-grid {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 40px;
+      }
+
+      .step {
+        text-align: center;
+      }
+
+      .step-number {
+        width: 50px;
+        height: 50px;
+        background: var(--primary);
+        color: var(--darker);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5em;
+        font-weight: 700;
+        margin: 0 auto 20px;
+      }
+
+      .step h3 {
+        font-size: 1.2em;
+        font-weight: 600;
+        margin-bottom: 10px;
+      }
+
+      .step p {
+        color: var(--secondary);
+      }
+
+      /* ===== FOOTER ===== */
+      footer {
+        background: var(--dark);
+        border-top: 1px solid var(--border);
+        padding: 40px;
+        text-align: center;
+        color: var(--secondary);
+        margin-top: auto;
+      }
+
+      footer p {
+        margin-bottom: 10px;
+      }
+
+      /* ===== RESPONSIVE ===== */
+      @media (max-width: 768px) {
+        .nav-links {
+          display: none;
+        }
+
+        .hero h1 {
+          font-size: 2.2em;
+        }
+
+        .hero p {
+          font-size: 1em;
+        }
+
+        .cta-buttons {
+          flex-direction: column;
+          align-items: center;
+        }
+
+        .section-title {
+          font-size: 1.8em;
+        }
+
+        .features-grid,
+        .steps-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .upload-area {
+          padding: 40px 20px;
+        }
+
+        .nav-container,
+        .hero-content,
+        .upload-container,
+        .features-grid,
+        .steps-grid {
+          padding: 0 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <header>
+      <div class="nav-container">
+        <div class="logo">Clean-O-Sphere</div>
+        <nav>
+          <ul class="nav-links">
+            <li>
+              <a
+                onclick="document.querySelector('.upload-section').scrollIntoView({behavior: 'smooth'})"
+                >Upload</a
+              >
+            </li>
+            <li>
+              <a
+                onclick="document.querySelector('.how-it-works').scrollIntoView({behavior: 'smooth'})"
+                >How it Works</a
+              >
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <!-- HERO SECTION -->
+    <section class="hero">
+      <div class="hero-content">
+        <h1>Intelligent Litter Detection & Tracking</h1>
+        <p>
+          Real-time AI-powered system to detect, track, and report littering
+          events. Help keep public spaces clean with advanced computer vision
+          technology.
+        </p>
+        <div class="cta-buttons">
+          <button
+            class="btn-primary"
+            onclick="document.querySelector('.upload-section').scrollIntoView({behavior: 'smooth'})"
+          >
+            Get Started
+          </button>
+          <button
+            class="btn-secondary"
+            onclick="document.querySelector('.how-it-works').scrollIntoView({behavior: 'smooth'})"
+          >
+            Learn More
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES SECTION -->
+    <section class="features">
+      <h2 class="section-title">Why Choose Clean-O-Sphere?</h2>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎯</div>
+          <h3>Real-Time Detection</h3>
+          <p>
+            Instantly identify littering events with high precision using
+            state-of-the-art AI models trained on thousands of scenarios.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h3>Person Tracking</h3>
+          <p>
+            Track and identify individuals involved in littering for
+            accountability and follow-up actions.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Detailed Analytics</h3>
+          <p>
+            Get comprehensive reports with detailed metrics, patterns, and
+            actionable insights for environmental management.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <h3>Frame Analysis</h3>
+          <p>
+            Process video frame by frame for maximum accuracy in detecting even
+            small littering items.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <h3>Fast Processing</h3>
+          <p>
+            Quick analysis and results generation to minimize wait times and
+            increase efficiency.
+          </p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📥</div>
+          <h3>Easy Export</h3>
+          <p>
+            Download processed videos and reports for documentation, sharing,
+            and compliance purposes.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- UPLOAD SECTION -->
+    <section class="upload-section">
+      <div class="upload-container">
+        <div class="upload-header">
+          <h2>Analyze Your Video</h2>
+          <p>
+            Upload a video file to detect and track littering events. Supports
+            MP4, MOV, AVI, and MKV formats.
+          </p>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+          <span class="upload-icon">📹</span>
+          <div class="upload-text">Click to upload or drag and drop</div>
+          <div class="upload-text-small">MP4, MOV, AVI or MKV (Max 500MB)</div>
+          <input
+            type="file"
+            id="fileInput"
+            class="file-input"
+            accept=".mov,.mp4,.avi,.mkv"
+          />
+        </div>
+
+        <div class="file-info" id="fileInfo">
+          <div class="file-name" id="fileName"></div>
+          <div class="file-size" id="fileSize"></div>
+        </div>
+
+        <div class="btn-container">
+          <button class="btn-upload" id="uploadBtn" disabled>
+            Upload & Process Video
+          </button>
+        </div>
+
+        <div class="progress-container" id="progressContainer">
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <div class="status-message" id="statusMessage">Preparing...</div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="results" id="results">
+          <div class="results-title">Analysis Results</div>
+          <div class="results-grid">
+            <div class="result-card">
+              <div class="result-label">Total Frames</div>
+              <div class="result-value" id="totalFrames">-</div>
+            </div>
+            <div class="result-card">
+              <div class="result-label">Littering Events</div>
+              <div class="result-value" id="litteringEvents">-</div>
+            </div>
+            <div class="result-card">
+              <div class="result-label">Persons Involved</div>
+              <div class="result-value" id="personsLittered">-</div>
+            </div>
+            <div class="result-card">
+              <div class="result-label">Total Litter Items</div>
+              <div class="result-value" id="totalLitter">-</div>
+            </div>
+          </div>
+          <div style="text-align: center">
+            <a
+              href="#"
+              id="downloadLink"
+              class="download-btn"
+              style="display: none"
+              >Download Processed Video</a
+            >
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS SECTION -->
+    <section class="how-it-works">
+      <h2 class="section-title">How It Works</h2>
+      <div class="steps-grid">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Upload Video</h3>
+          <p>Select and upload your video file in any supported format.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>AI Analysis</h3>
+          <p>Our AI system analyzes each frame to detect littering events.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Get Results</h3>
+          <p>Receive detailed analytics and annotated video results.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer>
+      <p>&copy; 2025 Clean-O-Sphere. All rights reserved.</p>
+      <p>
+        Intelligent solutions for environmental monitoring and litter
+        management.
+      </p>
+    </footer>
+  </body>
+</html>
