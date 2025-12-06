@@ -192,6 +192,7 @@ def get_littering_events():
 
 
 @app.route('/outputs/<filename>')
+@app.route('/download/<filename>')
 def download_output(filename):
     """Download processed video."""
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename)

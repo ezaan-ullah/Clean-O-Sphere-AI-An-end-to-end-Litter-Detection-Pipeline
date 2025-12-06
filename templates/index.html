@@ -731,5 +731,121 @@
         management.
       </p>
     </footer>
+
+    <script>
+      const uploadArea = document.getElementById('uploadArea')
+      const fileInput = document.getElementById('fileInput')
+      const uploadBtn = document.getElementById('uploadBtn')
+      const fileInfo = document.getElementById('fileInfo')
+      const fileName = document.getElementById('fileName')
+      const fileSize = document.getElementById('fileSize')
+      const progressContainer = document.getElementById('progressContainer')
+      const progressFill = document.getElementById('progressFill')
+      const statusMessage = document.getElementById('statusMessage')
+      const errorMessage = document.getElementById('errorMessage')
+      const results = document.getElementById('results')
+
+      let selectedFile = null
+
+      // Click to upload
+      uploadArea.addEventListener('click', () => {
+        fileInput.click()
+      })
+
+      // File selection
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          selectedFile = e.target.files[0]
+          displayFileInfo(selectedFile)
+          uploadBtn.disabled = false
+        }
+      })
+
+      // Drag and drop
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault()
+        uploadArea.classList.add('dragover')
+      })
+
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.classList.remove('dragover')
+      })
+
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault()
+        uploadArea.classList.remove('dragover')
+
+        if (e.dataTransfer.files.length > 0) {
+          selectedFile = e.dataTransfer.files[0]
+          displayFileInfo(selectedFile)
+          uploadBtn.disabled = false
+        }
+      })
+
+      function displayFileInfo(file) {
+        fileName.textContent = `File: ${file.name}`
+        fileSize.textContent = `Size: ${(file.size / (1024 * 1024)).toFixed(
+          2,
+        )} MB`
+        fileInfo.classList.add('show')
+        errorMessage.classList.remove('show')
+      }
+
+      // Upload button
+      uploadBtn.addEventListener('click', async () => {
+        if (!selectedFile) return
+
+        const formData = new FormData()
+        formData.append('video', selectedFile)
+
+        uploadBtn.disabled = true
+        progressContainer.classList.add('show')
+        results.classList.remove('show')
+        errorMessage.classList.remove('show')
+
+        try {
+          const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(
+              errorData.error || `HTTP error! status: ${response.status}`,
+            )
+          }
+
+          const data = await response.json()
+
+          // Update results
+          document.getElementById('totalFrames').textContent =
+            data.total_frames || 0
+          document.getElementById('litteringEvents').textContent =
+            data.littering_events || 0
+          document.getElementById('personsLittered').textContent =
+            data.persons_littered || 0
+          document.getElementById('totalLitter').textContent =
+            data.total_litter || 0
+
+          // Show download link if available
+          if (data.output_video) {
+            const downloadLink = document.getElementById('downloadLink')
+            downloadLink.href = `/outputs/${data.output_video}`
+            downloadLink.style.display = 'inline-block'
+          }
+
+          progressContainer.classList.remove('show')
+          results.classList.add('show')
+          statusMessage.textContent = 'Processing complete!'
+        } catch (error) {
+          errorMessage.textContent = `Error: ${error.message}`
+          errorMessage.classList.add('show')
+          progressContainer.classList.remove('show')
+        } finally {
+          uploadBtn.disabled = false
+        }
+      })
+    </script>
   </body>
 </html>
