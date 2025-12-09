@@ -4,7 +4,6 @@ Litter object class for tracking litter items.
 
 from .box import Box
 
-
 class Litter:
     """Tracks litter items with bounding boxes and associates with persons."""
     

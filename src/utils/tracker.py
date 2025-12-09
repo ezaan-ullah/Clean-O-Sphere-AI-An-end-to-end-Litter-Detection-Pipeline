@@ -7,7 +7,6 @@ from typing import Dict, List, Set
 from .person import Person
 from .litter import Litter
 
-
 class Tracker:
     """Manages persons and litter objects, updates tracking IDs, detects littering events."""
 
@@ -144,10 +143,7 @@ class Tracker:
         )
 
     def _mark_missing_tracks(self, seen_persons: Set[int], seen_litter: Set[int]) -> None:
-        _ = seen_persons  # reserved for future use when re-identification is added
-        # Persons keep their last_seen_frame value from the most recent update call.
-        # When they are not observed in the current frame we do nothing here; the
-        # cleanup step will evict them once the timeout is reached.
+        _ = seen_persons
 
         for litter_id, litter in self.litter_items.items():
             if litter_id not in seen_litter:

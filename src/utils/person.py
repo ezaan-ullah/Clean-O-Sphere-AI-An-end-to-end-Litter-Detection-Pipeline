@@ -8,7 +8,6 @@ from typing import Dict
 
 from .box import Box
 
-
 @dataclass
 class LitterAssociation:
     """Stores overlap history and state for a person–litter pair."""
@@ -30,7 +29,6 @@ class LitterAssociation:
     def current_overlap(self) -> float:
         return self.history[-1] if self.history else 0.0
 
-
 class Person:
     """Tracks persons and associated litter, detects when person has littered."""
 
@@ -42,7 +40,7 @@ class Person:
         self.has_littered = False
         self.littering_frame = None
         self.last_seen_frame = frame_number
-        self.image_captured = False  # Placeholder for future database/face-recognition hooks
+        self.image_captured = False
 
     def update(self, box: Box, frame_number: int) -> None:
         self.box = box
@@ -77,7 +75,6 @@ class Person:
         ):
             link.holding = True
 
-        # Track consecutive low-overlap frames
         if link.current_overlap < drop_threshold:
             link.low_overlap_streak += 1
         else:

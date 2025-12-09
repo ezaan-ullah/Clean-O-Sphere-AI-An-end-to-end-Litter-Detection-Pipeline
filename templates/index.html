@@ -673,22 +673,26 @@
           <div class="results-grid">
             <div class="result-card">
               <div class="result-label">Total Frames</div>
-              <div class="result-value" id="totalFrames">-</div>
+              <div class="result-value" id="totalFrames">0</div>
             </div>
             <div class="result-card">
               <div class="result-label">Littering Events</div>
-              <div class="result-value" id="litteringEvents">-</div>
+              <div class="result-value" id="litteringEvents">0</div>
             </div>
             <div class="result-card">
               <div class="result-label">Persons Involved</div>
-              <div class="result-value" id="personsLittered">-</div>
+              <div class="result-value" id="personsLittered">0</div>
             </div>
             <div class="result-card">
               <div class="result-label">Total Litter Items</div>
-              <div class="result-value" id="totalLitter">-</div>
+              <div class="result-value" id="totalLitter">0</div>
             </div>
           </div>
-          <div style="text-align: center">
+          <div id="eventsDetails" style="margin-top: 30px; display: none">
+            <h3 style="margin-bottom: 20px; color: #ffffff">Detected Events</h3>
+            <div id="eventsList"></div>
+          </div>
+          <div style="text-align: center; margin-top: 30px">
             <a
               href="#"
               id="downloadLink"
@@ -827,6 +831,39 @@
             data.persons_littered || 0
           document.getElementById('totalLitter').textContent =
             data.total_litter || 0
+
+          // Display event details if any
+          if (data.events_details && data.events_details.length > 0) {
+            const eventsDetails = document.getElementById('eventsDetails')
+            const eventsList = document.getElementById('eventsList')
+            eventsList.innerHTML = ''
+
+            data.events_details.forEach((event, idx) => {
+              const eventCard = document.createElement('div')
+              eventCard.style.cssText = `
+                background: #1a1a1a;
+                border: 1px solid #2a2a2a;
+                border-radius: 8px;
+                padding: 15px;
+                margin-bottom: 15px;
+              `
+              eventCard.innerHTML = `
+                <strong>Event ${idx + 1}</strong><br>
+                Person ID: ${event.person_id || 'N/A'}<br>
+                Litter Type: ${event.litter_type || 'Unknown'}<br>
+                Frame: ${event.frame || 'N/A'}<br>
+                ${
+                  event.license_plate
+                    ? `License Plate: <strong>${event.license_plate}</strong><br>`
+                    : ''
+                }
+                Status: ${event.sent ? '✓ Processed' : '○ Pending'}
+              `
+              eventsList.appendChild(eventCard)
+            })
+
+            eventsDetails.style.display = 'block'
+          }
 
           // Show download link if available
           if (data.output_video) {

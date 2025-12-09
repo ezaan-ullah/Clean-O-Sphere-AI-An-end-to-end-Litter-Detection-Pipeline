@@ -2,7 +2,6 @@
 Bounding box utility class for coordinate transformations and overlap detection.
 """
 
-
 class Box:
     """Handles bounding box operations in xywh format."""
     
@@ -64,7 +63,6 @@ class Box:
         Returns:
             float: Overlap ratio (intersection / union)
         """
-        # Convert to xyxy for easier calculation
         x1_1, y1_1, x2_1, y2_1 = self.to_xyxy()
         x1_2, y1_2, x2_2, y2_2 = other.to_xyxy()
         

@@ -1,8 +1,0 @@
-flask==3.0.0
-ultralytics==8.1.0
-opencv-python==4.8.1.78
-numpy==1.24.3
-requests==2.31.0
-werkzeug==3.0.1
-Pillow>=9.5.0
-

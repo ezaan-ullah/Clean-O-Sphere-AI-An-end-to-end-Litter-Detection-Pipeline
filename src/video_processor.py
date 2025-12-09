@@ -7,25 +7,21 @@ import time
 import requests
 from pathlib import Path
 import torch
+import os
 
-# Fix for PyTorch 2.6+ weights_only=True default
-# Patch torch.load to allow loading ultralytics models
 _original_torch_load = torch.load
 
 def _patched_torch_load(*args, **kwargs):
     """Patched torch.load to handle ultralytics model loading."""
-    # Set weights_only=False for trusted model files
     if 'weights_only' not in kwargs:
         kwargs['weights_only'] = False
     return _original_torch_load(*args, **kwargs)
 
-# Apply patch before importing YOLO
 torch.load = _patched_torch_load
 
 from ultralytics import YOLO
 from src.utils.tracker import Tracker
 from src.utils.box import Box
-
 
 class VideoProcessor:
     """Processes video frames for litter detection and tracking."""
@@ -39,17 +35,7 @@ class VideoProcessor:
         conf_threshold=0.25,
         iou_threshold=0.45,
     ):
-        """
-        Initialize video processor.
-        
-        Args:
-            model_path: Path to YOLOv8 model weights
-            flask_server_url: URL of Flask server for sending images
-            skip_frames: Number of frames to skip between processing (default 0)
-            imgsz: Inference image size
-            conf_threshold: YOLO confidence threshold
-            iou_threshold: YOLO IoU threshold
-        """
+        """Initialize video processor with litter detection and person/vehicle extraction."""
         self.model = YOLO(model_path)
         self.server_url = flask_server_url.rstrip("/")
         self.skip_frames = max(0, skip_frames)
@@ -84,7 +70,6 @@ class VideoProcessor:
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        # Setup video writer if output path is provided
         writer = None
         if output_path:
             Path(output_path).parent.mkdir(parents=True, exist_ok=True)
@@ -207,7 +192,6 @@ class VideoProcessor:
             x1, y1, x2, y2 = person.box.to_xyxy()
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
             
-            # Ensure coordinates are within frame bounds
             x1 = max(0, min(x1, w))
             y1 = max(0, min(y1, h))
             x2 = max(0, min(x2, w))
@@ -252,7 +236,6 @@ class VideoProcessor:
             x1, y1, x2, y2 = litter.box.to_xyxy()
             x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
             
-            # Ensure coordinates are within frame bounds
             x1 = max(0, min(x1, w))
             y1 = max(0, min(y1, h))
             x2 = max(0, min(x2, w))
@@ -295,14 +278,90 @@ class VideoProcessor:
         return frame
     
     def _handle_littering_events(self, annotated_frame):
-        """
-        Publish annotated frames for new littering events.
-        """
+        """Publish annotated frames and extract faces/plates for new littering events."""
         pending_events = self.tracker.get_pending_events()
         
         for event in pending_events:
             if self._send_litter_event_image(event, annotated_frame):
+                self._extract_face_plate_from_event(event, annotated_frame)
                 self.tracker.mark_event_sent(event)
+    
+    def _extract_face_plate_from_event(self, event, frame):
+        """Extract person crops from littering event frame using general object detection."""
+        try:
+            event_dir = f"static/litter_events/event_p{event['person_id']}_l{event['litter_id']}"
+            os.makedirs(event_dir, exist_ok=True)
+            
+            frame_path = os.path.join(event_dir, f"frame_{event['frame']}.jpg")
+            cv2.imwrite(frame_path, frame)
+            
+            from ultralytics import YOLO
+            yolo_model = YOLO("yolov8m.pt")
+            results = yolo_model(frame_path, conf=0.3, device=self.device, verbose=False)
+            result = results[0]
+            
+            person_crops = []
+            vehicle_crops = []
+            vehicle_details = []
+            
+            if result.boxes is not None and len(result.boxes) > 0:
+                for box in result.boxes:
+                    cls = int(box.cls.item())
+                    conf = box.conf.item()
+                    
+                    x1, y1, x2, y2 = box.xyxy[0].int().tolist()
+                    x1, y1, x2, y2 = max(0, x1), max(0, y1), x2, y2
+                    
+                    if x2 > x1 and y2 > y1:
+                        crop = frame[y1:y2, x1:x2]
+                        
+                        if cls == 0:
+                            filename = f"person_{event['person_id']}_{len(person_crops)}.jpg"
+                            filepath = os.path.join("static/faces", filename)
+                            cv2.imwrite(filepath, crop)
+                            person_crops.append(filepath)
+                        elif cls in [2, 5, 7]:
+                            filename = f"vehicle_{event['person_id']}_{len(vehicle_crops)}.jpg"
+                            filepath = os.path.join("static/number_plates", filename)
+                            cv2.imwrite(filepath, crop)
+                            vehicle_crops.append(filepath)
+                            
+                            plate_text = self._extract_plate_text(crop)
+                            vehicle_details.append({
+                                'crop': filepath,
+                                'plate_number': plate_text,
+                                'confidence': conf
+                            })
+                            
+                            if not event.get('license_plate'):
+                                event['license_plate'] = plate_text
+            
+            print(f"Extracted {len(person_crops)} person(s) and {len(vehicle_crops)} vehicle(s)")
+            if person_crops:
+                print(f"  Persons: {person_crops}")
+            if vehicle_details:
+                print(f"  Vehicles:")
+                for detail in vehicle_details:
+                    print(f"    - Plate: {detail['plate_number']} (conf: {detail['confidence']:.2f})")
+        except Exception as e:
+            print(f"Error extracting person/vehicle from event: {e}")
+    
+    def _extract_plate_text(self, vehicle_crop):
+        """Extract license plate number from vehicle crop using OCR."""
+        try:
+            import easyocr
+            
+            reader = easyocr.Reader(['en'], gpu=True if self.device == 0 else False)
+            results = reader.readtext(vehicle_crop)
+            
+            if results:
+                text = ' '.join([detection[1] for detection in results]).upper()
+                return text if len(text) > 2 else "NO-TEXT"
+            else:
+                return "NO-TEXT"
+        except Exception as e:
+            print(f"OCR Error: {e}")
+            return "ERROR"
     
     def _send_litter_event_image(self, event, frame):
         """

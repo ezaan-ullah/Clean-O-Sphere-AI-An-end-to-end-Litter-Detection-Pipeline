@@ -11,10 +11,9 @@ from src.video_processor import VideoProcessor
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
-app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024
 app.config['ALLOWED_EXTENSIONS'] = {'mov', 'mp4', 'avi', 'mkv'}
 
-# Create necessary directories (code)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 os.makedirs('static', exist_ok=True)
@@ -22,12 +21,10 @@ os.makedirs('static', exist_ok=True)
 # Model path configuration
 MODEL_PATH = 'model/v8mBestWeights.pt'
 
-
 def allowed_file(filename):
     """Check if file extension is allowed."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
-
 
 @app.route('/')
 def index():
@@ -36,7 +33,6 @@ def index():
         return render_template('index.html')
     except Exception as e:
         return f"Error loading template: {str(e)}", 500
-
 
 @app.route('/upload', methods=['POST'])
 def upload_video():
@@ -53,14 +49,12 @@ def upload_video():
         return jsonify({'error': 'Invalid file type. Allowed: mov, mp4, avi, mkv'}), 400
     
     try:
-        # Save uploaded file to disk
         filename = secure_filename(file.filename)
         filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(filepath)
         
         print(f"Processing video: {filename}")
         
-        # Process video using VideoProcessor
         processor = VideoProcessor(MODEL_PATH, flask_server_url=request.url_root)
         output_filename = f"processed_{filename}"
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
@@ -69,7 +63,6 @@ def upload_video():
         
         print(f"Processing complete. Results: {results}")
         
-        # Ensure results is a dict with all required fields
         if not isinstance(results, dict):
             results = {
                 'total_frames': getattr(results, 'total_frames', 0),
@@ -78,11 +71,13 @@ def upload_video():
                 'total_litter_items': getattr(results, 'total_litter_items', 0)
             }
         
-        # Return results and output video path
         return jsonify({
             'success': True,
             'message': 'Video processed successfully',
-            'results': results,
+            'total_frames': results.get('total_frames', 0),
+            'littering_events': len(results.get('littering_events', [])),
+            'persons_littered': results.get('persons_with_littering', 0),
+            'total_litter': results.get('total_litter_items', 0),
             'output_video': output_filename
         })
     
@@ -94,7 +89,6 @@ def upload_video():
             'success': False,
             'error': f'Processing failed: {str(e)}'
         }), 500
-
 
 @app.route('/api/report_littering', methods=['POST'])
 def report_littering():
@@ -110,8 +104,6 @@ def report_littering():
     
     image_file = request.files['image']
     
-    # Save image (placeholder - in production, save to MongoDB)
-    # For now, just save to disk locally
     image_dir = os.path.join('static', 'person_images')
     os.makedirs(image_dir, exist_ok=True)
     
@@ -119,7 +111,6 @@ def report_littering():
     image_path = os.path.join(image_dir, image_filename)
     image_file.save(image_path)
     
-    # TODO: Save to MongoDB
     # person_data = {
     #     'person_id': person_id,
     #     'frame_number': frame_number,
@@ -136,7 +127,6 @@ def report_littering():
         'person_id': person_id,
         'frame_number': frame_number
     })
-
 
 @app.route('/api/addImage', methods=['POST'])
 def add_image():
@@ -177,11 +167,9 @@ def add_image():
         'metadata': metadata
     })
 
-
 @app.route('/api/littering_events', methods=['GET'])
 def get_littering_events():
     """Get all littering events (placeholder for MongoDB)."""
-    # TODO: Fetch from MongoDB
     # events = list(db.littering_events.find())
     # return jsonify({'events': events})
     
@@ -190,25 +178,21 @@ def get_littering_events():
         'message': 'MongoDB integration pending'
     })
 
-
 @app.route('/outputs/<filename>')
 @app.route('/download/<filename>')
 def download_output(filename):
     """Download processed video."""
     return send_from_directory(app.config['OUTPUT_FOLDER'], filename)
 
-
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve static files."""
     return send_from_directory('static', filename)
 
-
 @app.route('/test')
 def test():
     """Test route to verify Flask is working."""
     return "Flask is working! Template folder: " + str(app.template_folder)
-
 
 if __name__ == '__main__':
     print("Starting Flask server...")
