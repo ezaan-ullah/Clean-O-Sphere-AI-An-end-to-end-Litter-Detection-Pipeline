@@ -1,5 +1,9 @@
 """Main video processing loop for litter detection and tracking."""
 
+"""command"""
+"""docker run -p 5000:5000 litter-detection:latest"""
+
+
 import cv2
 import time
 import requests
