@@ -1,8 +1,0 @@
-path: /model/best.pt
-
-names:
-  0: person
-  1: paper
-  2: cardboard
-  3: can
-  4: plastic
