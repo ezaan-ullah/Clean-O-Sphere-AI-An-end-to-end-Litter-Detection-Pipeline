@@ -59,6 +59,7 @@ class VideoProcessor:
         # Supabase integration
         self.supabase: Optional[SupabaseClient] = None
         self.video_id: Optional[int] = None
+        self.video_metadata: Optional[Dict[str, Any]] = None
         if use_supabase and SUPABASE_AVAILABLE:
             try:
                 self.supabase = get_supabase_client()
@@ -99,8 +100,8 @@ class VideoProcessor:
         print(f"Processing video: {video_path}")
         print(f"FPS: {fps}, Resolution: {width}x{height}, Total frames: {total_frames}")
         
-        # Create video record in Supabase
-        video_metadata = {
+        # Store video metadata (record will only be created if littering is detected)
+        self.video_metadata = {
             "filename": os.path.basename(video_path),
             "fps": fps,
             "width": width,
@@ -109,14 +110,8 @@ class VideoProcessor:
             "duration_seconds": total_frames / fps if fps > 0 else 0,
         }
         
-        if self.supabase:
-            try:
-                video_record = self.supabase.create_video_record(metadata=video_metadata)
-                self.video_id = video_record.get("id")
-                print(f"Created video record in Supabase with ID: {self.video_id}")
-            except Exception as e:
-                print(f"Failed to create video record in Supabase: {e}")
-                self.video_id = None
+        # Reset video_id - will be set when first littering event is detected
+        self.video_id = None
         
         self.tracker.reset()
         self.frame_count = 0
@@ -174,35 +169,36 @@ class VideoProcessor:
             cv2.destroyAllWindows()
         
         # Upload processed video to Supabase and update record
+        # NOTE: Video uploads commented out due to large file sizes
         processed_video_url = None
         original_video_url = None
-        if self.supabase and self.video_id and output_path:
-            try:
-                # Upload processed video
-                storage_path = f"videos/{self.video_id}/processed_{os.path.basename(output_path)}"
-                processed_video_url = self.supabase.upload_video(output_path, storage_path)
-                
-                # Upload original video
-                original_storage_path = f"videos/{self.video_id}/original_{os.path.basename(video_path)}"
-                original_video_url = self.supabase.upload_video(str(video_path), original_storage_path)
-                
-                # Update video record with URLs and final metadata
-                final_metadata = {
-                    **video_metadata,
-                    "processed_frames": self.frame_count,
-                    "littering_events_count": len(self.tracker.get_littering_events()),
-                    "persons_with_littering": len([p for p in self.tracker.persons.values() if p.has_littered]),
-                    "total_litter_items": len(self.tracker.litter_items),
-                }
-                self.supabase.update_video_record(
-                    self.video_id,
-                    original_video_url=original_video_url,
-                    processed_video_url=processed_video_url,
-                    metadata=final_metadata,
-                )
-                print(f"Uploaded videos to Supabase storage")
-            except Exception as e:
-                print(f"Failed to upload videos to Supabase: {e}")
+        # if self.supabase and self.video_id and output_path:
+        #     try:
+        #         # Upload processed video
+        #         storage_path = f"videos/{self.video_id}/processed_{os.path.basename(output_path)}"
+        #         processed_video_url = self.supabase.upload_video(output_path, storage_path)
+        #         
+        #         # Upload original video
+        #         original_storage_path = f"videos/{self.video_id}/original_{os.path.basename(video_path)}"
+        #         original_video_url = self.supabase.upload_video(str(video_path), original_storage_path)
+        #         
+        #         # Update video record with URLs and final metadata
+        #         final_metadata = {
+        #             **video_metadata,
+        #             "processed_frames": self.frame_count,
+        #             "littering_events_count": len(self.tracker.get_littering_events()),
+        #             "persons_with_littering": len([p for p in self.tracker.persons.values() if p.has_littered]),
+        #             "total_litter_items": len(self.tracker.litter_items),
+        #         }
+        #         self.supabase.update_video_record(
+        #             self.video_id,
+        #             original_video_url=original_video_url,
+        #             processed_video_url=processed_video_url,
+        #             metadata=final_metadata,
+        #         )
+        #         print(f"Uploaded videos to Supabase storage")
+        #     except Exception as e:
+        #         print(f"Failed to upload videos to Supabase: {e}")
         
         # Get results summary
         return {
@@ -365,6 +361,15 @@ class VideoProcessor:
         for event in pending_events:
             snapshot_url = None
             face_url = None
+            
+            # Create video record on first littering event (lazy creation)
+            if self.supabase and self.video_id is None:
+                try:
+                    video_record = self.supabase.create_video_record(metadata=self.video_metadata)
+                    self.video_id = video_record.get("id")
+                    print(f"Littering detected! Created video record in Supabase with ID: {self.video_id}")
+                except Exception as e:
+                    print(f"Failed to create video record in Supabase: {e}")
             
             # Upload snapshot to Supabase
             if self.supabase and self.video_id:
