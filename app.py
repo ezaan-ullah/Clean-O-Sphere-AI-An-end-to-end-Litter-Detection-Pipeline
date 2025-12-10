@@ -4,6 +4,7 @@ Flask backend server for litter detection system.
 
 import os
 import time
+import shutil
 from flask import Flask, request, render_template, jsonify, send_from_directory, url_for
 from werkzeug.utils import secure_filename
 from src.video_processor import VideoProcessor
@@ -28,6 +29,38 @@ os.makedirs('static', exist_ok=True)
 # Model path configuration
 MODEL_PATH = 'model/v8mBestWeights.pt'
 
+
+def cleanup_previous_request():
+    """
+    Clean up files from the previous request:
+    - Original videos in uploads/
+    - Processed videos in outputs/
+    - Event images in static/litter_events/
+    - Face images in static/faces/
+    - Number plate images in static/number_plates/
+    """
+    folders_to_clean = [
+        app.config['UPLOAD_FOLDER'],
+        app.config['OUTPUT_FOLDER'],
+        os.path.join('static', 'litter_events'),
+        os.path.join('static', 'faces'),
+        os.path.join('static', 'number_plates'),
+    ]
+    
+    for folder in folders_to_clean:
+        if os.path.exists(folder):
+            try:
+                # Remove all contents but keep the folder
+                for item in os.listdir(folder):
+                    item_path = os.path.join(folder, item)
+                    if os.path.isfile(item_path):
+                        os.remove(item_path)
+                    elif os.path.isdir(item_path):
+                        shutil.rmtree(item_path)
+                print(f"Cleaned up: {folder}")
+            except Exception as e:
+                print(f"Error cleaning {folder}: {e}")
+
 def allowed_file(filename):
     """Check if file extension is allowed."""
     return '.' in filename and \
@@ -44,6 +77,13 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_video():
     """Handle video upload and processing."""
+
+    # =============================================================================== #
+    # Clean up files from previous request before starting new one
+    cleanup_previous_request()
+    
+    # =============================================================================== #
+    
     if 'video' not in request.files:
         return jsonify({'error': 'No video file provided'}), 400
     
