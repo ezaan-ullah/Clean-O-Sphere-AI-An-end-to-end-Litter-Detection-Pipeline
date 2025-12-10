@@ -1,6 +1,4 @@
-"""
-Main video processing loop for litter detection and tracking.
-"""
+"""Main video processing loop for litter detection and tracking."""
 
 import cv2
 import time
@@ -8,6 +6,7 @@ import requests
 from pathlib import Path
 import torch
 import os
+from typing import Optional, Dict, Any
 
 _original_torch_load = torch.load
 
@@ -23,6 +22,15 @@ from ultralytics import YOLO
 from src.utils.tracker import Tracker
 from src.utils.box import Box
 
+# Try to import Supabase client (optional dependency)
+try:
+    from src.utils.supabase_client import get_supabase_client, SupabaseClient
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    print("Supabase client not available. Events will only be stored locally.")
+
+
 class VideoProcessor:
     """Processes video frames for litter detection and tracking."""
     
@@ -34,6 +42,7 @@ class VideoProcessor:
         imgsz=1280,
         conf_threshold=0.25,
         iou_threshold=0.45,
+        use_supabase=True,
     ):
         """Initialize video processor with litter detection and person/vehicle extraction."""
         self.model = YOLO(model_path)
@@ -46,6 +55,17 @@ class VideoProcessor:
         self.tracker = Tracker()
         self.frame_count = 0
         self.last_inference_time = 0
+        
+        # Supabase integration
+        self.supabase: Optional[SupabaseClient] = None
+        self.video_id: Optional[int] = None
+        if use_supabase and SUPABASE_AVAILABLE:
+            try:
+                self.supabase = get_supabase_client()
+                print("Supabase client initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize Supabase client: {e}")
+                self.supabase = None
     
     def process_video(self, video_path, output_path=None, display=False):
         """
@@ -78,6 +98,25 @@ class VideoProcessor:
         
         print(f"Processing video: {video_path}")
         print(f"FPS: {fps}, Resolution: {width}x{height}, Total frames: {total_frames}")
+        
+        # Create video record in Supabase
+        video_metadata = {
+            "filename": os.path.basename(video_path),
+            "fps": fps,
+            "width": width,
+            "height": height,
+            "total_frames": total_frames,
+            "duration_seconds": total_frames / fps if fps > 0 else 0,
+        }
+        
+        if self.supabase:
+            try:
+                video_record = self.supabase.create_video_record(metadata=video_metadata)
+                self.video_id = video_record.get("id")
+                print(f"Created video record in Supabase with ID: {self.video_id}")
+            except Exception as e:
+                print(f"Failed to create video record in Supabase: {e}")
+                self.video_id = None
         
         self.tracker.reset()
         self.frame_count = 0
@@ -116,22 +155,64 @@ class VideoProcessor:
                     break
             
             self.frame_count += 1
-            
+
+            # ======================================================== #
+            print("debugging frame count:", self.frame_count)
+            # ======================================================== #
+
             if self.frame_count % max(1, fps) == 0:
                 print(f"Processed {self.frame_count}/{total_frames} frames")
         
+        # ============================================================== #
+        print("Finished processing video. While loop ho gya hai exit")
+        # ============================================================== #
+
         cap.release()
         if writer:
             writer.release()
         if display:
             cv2.destroyAllWindows()
         
+        # Upload processed video to Supabase and update record
+        processed_video_url = None
+        original_video_url = None
+        if self.supabase and self.video_id and output_path:
+            try:
+                # Upload processed video
+                storage_path = f"videos/{self.video_id}/processed_{os.path.basename(output_path)}"
+                processed_video_url = self.supabase.upload_video(output_path, storage_path)
+                
+                # Upload original video
+                original_storage_path = f"videos/{self.video_id}/original_{os.path.basename(video_path)}"
+                original_video_url = self.supabase.upload_video(str(video_path), original_storage_path)
+                
+                # Update video record with URLs and final metadata
+                final_metadata = {
+                    **video_metadata,
+                    "processed_frames": self.frame_count,
+                    "littering_events_count": len(self.tracker.get_littering_events()),
+                    "persons_with_littering": len([p for p in self.tracker.persons.values() if p.has_littered]),
+                    "total_litter_items": len(self.tracker.litter_items),
+                }
+                self.supabase.update_video_record(
+                    self.video_id,
+                    original_video_url=original_video_url,
+                    processed_video_url=processed_video_url,
+                    metadata=final_metadata,
+                )
+                print(f"Uploaded videos to Supabase storage")
+            except Exception as e:
+                print(f"Failed to upload videos to Supabase: {e}")
+        
         # Get results summary
         return {
             'total_frames': self.frame_count,
             'littering_events': self.tracker.get_littering_events(),
             'persons_with_littering': len([p for p in self.tracker.persons.values() if p.has_littered]),
-            'total_litter_items': len(self.tracker.litter_items)
+            'total_litter_items': len(self.tracker.litter_items),
+            'video_id': self.video_id,
+            'processed_video_url': processed_video_url,
+            'original_video_url': original_video_url,
         }
     
     def _extract_detections(self, result):
@@ -282,15 +363,56 @@ class VideoProcessor:
         pending_events = self.tracker.get_pending_events()
         
         for event in pending_events:
-            if self._send_litter_event_image(event, annotated_frame):
-                self._extract_face_plate_from_event(event, annotated_frame)
-                self.tracker.mark_event_sent(event)
+            snapshot_url = None
+            face_url = None
+            
+            # Upload snapshot to Supabase
+            if self.supabase and self.video_id:
+                try:
+                    storage_path = f"events/{self.video_id}/event_p{event['person_id']}_l{event['litter_id']}_f{event['frame']}.jpg"
+                    snapshot_url = self.supabase.upload_frame(annotated_frame, storage_path)
+                except Exception as e:
+                    print(f"Failed to upload snapshot to Supabase: {e}")
+            
+            # Extract face/person crop and upload
+            face_url = self._extract_face_plate_from_event(event, annotated_frame)
+            
+            # Save event to Supabase database
+            if self.supabase and self.video_id:
+                try:
+                    self.supabase.create_event(
+                        video_id=self.video_id,
+                        snapshot_url=snapshot_url,
+                        face_url=face_url,
+                        label=event.get("litter_type", "unknown"),
+                        confidence=None,  # Could be added from detection
+                        extra={
+                            "person_id": event["person_id"],
+                            "litter_id": event["litter_id"],
+                            "frame_number": event["frame"],
+                            "license_plate": event.get("license_plate"),
+                        },
+                    )
+                    print(f"Saved littering event to Supabase: person {event['person_id']}, litter {event['litter_id']}")
+                except Exception as e:
+                    print(f"Failed to save event to Supabase: {e}")
+            
+            # Also send to Flask server for backward compatibility
+            self._send_litter_event_image(event, annotated_frame)
+            self.tracker.mark_event_sent(event)
     
     def _extract_face_plate_from_event(self, event, frame):
-        """Extract person crops from littering event frame using general object detection."""
+        """Extract person crops from littering event frame using general object detection.
+        
+        Returns:
+            str: URL of the first person crop uploaded to Supabase, or None
+        """
+        face_url = None
         try:
             event_dir = f"static/litter_events/event_p{event['person_id']}_l{event['litter_id']}"
             os.makedirs(event_dir, exist_ok=True)
+            os.makedirs("static/faces", exist_ok=True)
+            os.makedirs("static/number_plates", exist_ok=True)
             
             frame_path = os.path.join(event_dir, f"frame_{event['frame']}.jpg")
             cv2.imwrite(frame_path, frame)
@@ -320,6 +442,15 @@ class VideoProcessor:
                             filepath = os.path.join("static/faces", filename)
                             cv2.imwrite(filepath, crop)
                             person_crops.append(filepath)
+                            
+                            # Upload first person crop to Supabase
+                            if self.supabase and self.video_id and face_url is None:
+                                try:
+                                    storage_path = f"faces/{self.video_id}/{filename}"
+                                    face_url = self.supabase.upload_file(filepath, storage_path)
+                                except Exception as e:
+                                    print(f"Failed to upload face to Supabase: {e}")
+                                    
                         elif cls in [2, 5, 7]:
                             filename = f"vehicle_{event['person_id']}_{len(vehicle_crops)}.jpg"
                             filepath = os.path.join("static/number_plates", filename)
@@ -343,8 +474,11 @@ class VideoProcessor:
                 print(f"  Vehicles:")
                 for detail in vehicle_details:
                     print(f"    - Plate: {detail['plate_number']} (conf: {detail['confidence']:.2f})")
+                    
+            return face_url
         except Exception as e:
             print(f"Error extracting person/vehicle from event: {e}")
+            return None
     
     def _extract_plate_text(self, vehicle_crop):
         """Extract license plate number from vehicle crop using OCR."""

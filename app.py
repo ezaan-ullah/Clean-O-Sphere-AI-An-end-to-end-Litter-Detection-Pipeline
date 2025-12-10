@@ -8,6 +8,13 @@ from flask import Flask, request, render_template, jsonify, send_from_directory,
 from werkzeug.utils import secure_filename
 from src.video_processor import VideoProcessor
 
+# Try to import Supabase client
+try:
+    from src.utils.supabase_client import get_supabase_client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
@@ -78,7 +85,10 @@ def upload_video():
             'littering_events': len(results.get('littering_events', [])),
             'persons_littered': results.get('persons_with_littering', 0),
             'total_litter': results.get('total_litter_items', 0),
-            'output_video': output_filename
+            'output_video': output_filename,
+            'video_id': results.get('video_id'),
+            'processed_video_url': results.get('processed_video_url'),
+            'original_video_url': results.get('original_video_url'),
         })
     
     except Exception as e:
@@ -169,14 +179,82 @@ def add_image():
 
 @app.route('/api/littering_events', methods=['GET'])
 def get_littering_events():
-    """Get all littering events (placeholder for MongoDB)."""
-    # events = list(db.littering_events.find())
-    # return jsonify({'events': events})
-    
-    return jsonify({
-        'events': [],
-        'message': 'MongoDB integration pending'
-    })
+    """Get all littering events from Supabase."""
+    if SUPABASE_AVAILABLE:
+        try:
+            client = get_supabase_client()
+            events = client.get_all_events()
+            return jsonify({
+                'success': True,
+                'events': events,
+                'count': len(events)
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'events': []
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'events': [],
+            'message': 'Supabase not configured'
+        })
+
+
+@app.route('/api/videos', methods=['GET'])
+def get_videos():
+    """Get all processed videos from Supabase."""
+    if SUPABASE_AVAILABLE:
+        try:
+            client = get_supabase_client()
+            videos = client.get_all_videos()
+            return jsonify({
+                'success': True,
+                'videos': videos,
+                'count': len(videos)
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'videos': []
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'videos': [],
+            'message': 'Supabase not configured'
+        })
+
+
+@app.route('/api/videos/<int:video_id>/events', methods=['GET'])
+def get_video_events(video_id):
+    """Get all events for a specific video."""
+    if SUPABASE_AVAILABLE:
+        try:
+            client = get_supabase_client()
+            events = client.get_events_by_video(video_id)
+            return jsonify({
+                'success': True,
+                'video_id': video_id,
+                'events': events,
+                'count': len(events)
+            })
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'events': []
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'events': [],
+            'message': 'Supabase not configured'
+        })
+
 
 @app.route('/outputs/<filename>')
 @app.route('/download/<filename>')
@@ -194,9 +272,11 @@ def test():
     """Test route to verify Flask is working."""
     return "Flask is working! Template folder: " + str(app.template_folder)
 
+
 if __name__ == '__main__':
     print("Starting Flask server...")
     print(f"Template folder: {app.template_folder}")
     print(f"Upload folder: {app.config['UPLOAD_FOLDER']}")
+    print(f"Supabase available: {SUPABASE_AVAILABLE}")
     app.run(debug=True, host='0.0.0.0', port=5000)
 
