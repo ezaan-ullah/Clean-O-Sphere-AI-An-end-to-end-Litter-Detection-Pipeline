@@ -50,3 +50,5 @@ Thumbs.db
 *.log
 
 .env
+/yolov8m.pt
+/yolo11n.pt
