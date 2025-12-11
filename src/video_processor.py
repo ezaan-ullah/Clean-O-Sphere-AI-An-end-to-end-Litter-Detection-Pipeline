@@ -34,6 +34,14 @@ except ImportError:
     SUPABASE_AVAILABLE = False
     print("Supabase client not available. Events will only be stored locally.")
 
+# Try to import email notifier (optional dependency)
+try:
+    from src.utils.email_notifier import get_email_notifier, EmailNotifier
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    print("Email notifier not available. Email alerts will be disabled.")
+
 
 class VideoProcessor:
     """Processes video frames for litter detection and tracking."""
@@ -47,6 +55,8 @@ class VideoProcessor:
         conf_threshold=0.25,
         iou_threshold=0.45,
         use_supabase=True,
+        detect_vehicles=True,
+        send_email_alerts=True,
     ):
         """Initialize video processor with litter detection and person/vehicle extraction."""
         self.model = YOLO(model_path)
@@ -60,6 +70,10 @@ class VideoProcessor:
         self.frame_count = 0
         self.last_inference_time = 0
         
+        # Vehicle detection with pre-trained model
+        self.detect_vehicles = detect_vehicles
+        self.vehicle_model = YOLO("yolov8m.pt") if detect_vehicles else None
+        
         # Supabase integration
         self.supabase: Optional[SupabaseClient] = None
         self.video_id: Optional[int] = None
@@ -71,6 +85,19 @@ class VideoProcessor:
             except Exception as e:
                 print(f"Failed to initialize Supabase client: {e}")
                 self.supabase = None
+        
+        # Email notification integration
+        self.email_notifier: Optional[EmailNotifier] = None
+        if send_email_alerts and EMAIL_AVAILABLE:
+            try:
+                self.email_notifier = get_email_notifier()
+                if self.email_notifier.enabled:
+                    print("Email notifier initialized successfully")
+                else:
+                    self.email_notifier = None
+            except Exception as e:
+                print(f"Failed to initialize email notifier: {e}")
+                self.email_notifier = None
     
     def process_video(self, video_path, output_path=None, display=False):
         """
@@ -139,6 +166,20 @@ class VideoProcessor:
             
             detections = self._extract_detections(results[0]) if results else []
             self.tracker.update(detections, self.frame_count)
+            
+            # Detect and track vehicles with secondary model
+            if self.detect_vehicles and self.vehicle_model:
+                vehicle_results = self.vehicle_model.track(
+                    frame,
+                    persist=True,
+                    verbose=False,
+                    imgsz=self.img_size,
+                    conf=self.conf_threshold,
+                    classes=[2, 3, 5, 7],  # car, motorcycle, bus, truck
+                    device=self.device,
+                )
+                vehicle_detections = self._extract_detections(vehicle_results[0]) if vehicle_results else []
+                self.tracker.update_vehicles(vehicle_detections, self.frame_count)
             
             annotated_frame = self._draw_annotations(frame.copy())
             self._handle_littering_events(annotated_frame)
@@ -356,6 +397,48 @@ class VideoProcessor:
                 lineType=cv2.LINE_AA,
             )
         
+        # Draw vehicles
+        for vehicle_id, vehicle in self.tracker.vehicles.items():
+            x1, y1, x2, y2 = vehicle.box.to_xyxy()
+            x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+            
+            x1 = max(0, min(x1, w))
+            y1 = max(0, min(y1, h))
+            x2 = max(0, min(x2, w))
+            y2 = max(0, min(y2, h))
+            
+            if x2 <= x1 or y2 <= y1:
+                continue
+            
+            color = (255, 165, 0)  # Orange color for vehicles
+            thickness = 3
+            
+            cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+            
+            label = f"id:{vehicle_id} {vehicle.class_name}"
+            
+            (text_width, text_height), _ = cv2.getTextSize(
+                label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2
+            )
+            label_y = max(y1 - 12, text_height + 12)
+            cv2.rectangle(
+                frame,
+                (x1, label_y - text_height - 10),
+                (x1 + text_width + 16, label_y + 6),
+                color,
+                -1,
+            )
+            cv2.putText(
+                frame,
+                label,
+                (x1 + 8, label_y),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (0, 0, 0),
+                2,
+                lineType=cv2.LINE_AA,
+            )
+        
         return frame
     
     def _handle_littering_events(self, annotated_frame):
@@ -405,6 +488,21 @@ class VideoProcessor:
                     print(f"Saved littering event to Supabase: person {event['person_id']}, litter {event['litter_id']}")
                 except Exception as e:
                     print(f"Failed to save event to Supabase: {e}")
+            
+            # Send email notification to admin
+            if self.email_notifier:
+                try:
+                    # Get local snapshot path for attachment
+                    local_snapshot = f"static/litter_events/event_p{event['person_id']}_l{event['litter_id']}/frame_{event['frame']}.jpg"
+                    self.email_notifier.send_littering_alert(
+                        event=event,
+                        video_id=self.video_id,
+                        snapshot_url=snapshot_url,
+                        face_url=face_url,
+                        local_snapshot_path=local_snapshot if os.path.exists(local_snapshot) else None,
+                    )
+                except Exception as e:
+                    print(f"Failed to send email notification: {e}")
             
             # Also send to Flask server for backward compatibility
             self._send_litter_event_image(event, annotated_frame)

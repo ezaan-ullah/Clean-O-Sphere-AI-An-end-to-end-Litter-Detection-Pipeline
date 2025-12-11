@@ -102,7 +102,7 @@ def upload_video():
         
         print(f"Processing video: {filename}")
         
-        processor = VideoProcessor(MODEL_PATH, flask_server_url=request.url_root)
+        processor = VideoProcessor(MODEL_PATH, flask_server_url=request.url_root, detect_vehicles=False)
         output_filename = f"processed_{filename}"
         output_path = os.path.join(app.config['OUTPUT_FOLDER'], output_filename)
         

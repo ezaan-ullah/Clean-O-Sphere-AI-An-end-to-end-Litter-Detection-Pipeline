@@ -6,6 +6,7 @@ from typing import Dict, List, Set
 
 from .person import Person
 from .litter import Litter
+from .vehicle import Vehicle
 
 class Tracker:
     """Manages persons and litter objects, updates tracking IDs, detects littering events."""
@@ -16,6 +17,14 @@ class Tracker:
         2: "cardboard",
         3: "can",
         4: "plastic",
+    }
+    
+    # COCO class IDs for vehicles (used by yolov8m.pt)
+    VEHICLE_CLASS_MAPPING = {
+        2: "car",
+        3: "motorcycle",
+        5: "bus",
+        7: "truck",
     }
 
     def __init__(
@@ -40,6 +49,7 @@ class Tracker:
 
         self.persons: Dict[int, Person] = {}
         self.litter_items: Dict[int, Litter] = {}
+        self.vehicles: Dict[int, Vehicle] = {}
         self.frame_number = 0
         self.littering_events: List[Dict] = []
 
@@ -178,6 +188,45 @@ class Tracker:
     def reset(self) -> None:
         self.persons.clear()
         self.litter_items.clear()
+        self.vehicles.clear()
         self.frame_number = 0
         self.littering_events.clear()
+    
+    def update_vehicles(self, detections: List[Dict], frame_number: int) -> None:
+        """
+        Update tracker with vehicle detections from the secondary model.
+        
+        Args:
+            detections: List of vehicle detections with track_id, class_id, class_name, box
+            frame_number: Current frame number
+        """
+        seen_vehicles: Set[int] = set()
+        
+        for det in detections:
+            track_id = det.get("track_id")
+            if track_id is None:
+                continue
+            
+            class_id = det["class_id"]
+            # Only process vehicle classes
+            if class_id not in self.VEHICLE_CLASS_MAPPING:
+                continue
+                
+            seen_vehicles.add(track_id)
+            class_name = self.VEHICLE_CLASS_MAPPING.get(class_id, "vehicle")
+            
+            if track_id in self.vehicles:
+                self.vehicles[track_id].update(det["box"], frame_number)
+            else:
+                self.vehicles[track_id] = Vehicle(
+                    track_id, det["box"], frame_number, class_name
+                )
+        
+        # Cleanup old vehicle tracks
+        vehicles_to_remove = [
+            vid for vid, vehicle in self.vehicles.items()
+            if frame_number - vehicle.last_seen_frame > self.max_frames_missing
+        ]
+        for vid in vehicles_to_remove:
+            del self.vehicles[vid]
 
