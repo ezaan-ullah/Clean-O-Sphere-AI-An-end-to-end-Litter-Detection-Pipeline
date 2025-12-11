@@ -1,0 +1,5 @@
+outs:
+- md5: 055a2569bcc197db7c657128dc6cef2f
+  size: 52101953
+  hash: md5
+  path: v8mBestWeights.pt
