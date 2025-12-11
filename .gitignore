@@ -52,3 +52,6 @@ Thumbs.db
 .env
 /yolov8m.pt
 /yolo11n.pt
+static/faces
+static/litter_events
+static/number_plates
