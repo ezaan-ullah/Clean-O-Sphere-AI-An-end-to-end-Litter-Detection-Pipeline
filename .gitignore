@@ -52,6 +52,7 @@ Thumbs.db
 .env
 /yolov8m.pt
 /yolo11n.pt
+/model/v8mBestWeights.pt
 static/faces
 static/litter_events
 static/number_plates
