@@ -30,6 +30,14 @@ except ImportError:
     SUPABASE_AVAILABLE = False
     print("Supabase client not available. Events will only be stored locally.")
 
+# Try to import email notifier (optional dependency)
+try:
+    from src.utils.email_notifier import get_email_notifier, EmailNotifier
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    print("Email notifier not available. Email alerts will be disabled.")
+
 
 class VideoProcessor:
     """Processes video frames for litter detection and tracking."""
@@ -44,6 +52,7 @@ class VideoProcessor:
         iou_threshold=0.45,
         use_supabase=True,
         detect_vehicles=True,
+        send_email_alerts=True,
     ):
         """Initialize video processor with litter detection and person/vehicle extraction."""
         self.model = YOLO(model_path)
@@ -72,6 +81,19 @@ class VideoProcessor:
             except Exception as e:
                 print(f"Failed to initialize Supabase client: {e}")
                 self.supabase = None
+        
+        # Email notification integration
+        self.email_notifier: Optional[EmailNotifier] = None
+        if send_email_alerts and EMAIL_AVAILABLE:
+            try:
+                self.email_notifier = get_email_notifier()
+                if self.email_notifier.enabled:
+                    print("Email notifier initialized successfully")
+                else:
+                    self.email_notifier = None
+            except Exception as e:
+                print(f"Failed to initialize email notifier: {e}")
+                self.email_notifier = None
     
     def process_video(self, video_path, output_path=None, display=False):
         """
@@ -462,6 +484,21 @@ class VideoProcessor:
                     print(f"Saved littering event to Supabase: person {event['person_id']}, litter {event['litter_id']}")
                 except Exception as e:
                     print(f"Failed to save event to Supabase: {e}")
+            
+            # Send email notification to admin
+            if self.email_notifier:
+                try:
+                    # Get local snapshot path for attachment
+                    local_snapshot = f"static/litter_events/event_p{event['person_id']}_l{event['litter_id']}/frame_{event['frame']}.jpg"
+                    self.email_notifier.send_littering_alert(
+                        event=event,
+                        video_id=self.video_id,
+                        snapshot_url=snapshot_url,
+                        face_url=face_url,
+                        local_snapshot_path=local_snapshot if os.path.exists(local_snapshot) else None,
+                    )
+                except Exception as e:
+                    print(f"Failed to send email notification: {e}")
             
             # Also send to Flask server for backward compatibility
             self._send_litter_event_image(event, annotated_frame)
